@@ -1,10 +1,10 @@
-19. Kf4 Qxf2+
-29. Qd3+ Kh8
-32. Kf7
-4. Qg4+ Qa3
-5. Qxg7 Qxa2
-6. Qxg8 Qxa1
-7. Qxh8 Qxb1
-8. Qxh7 Qxb2
-9. Qxf7+ Kd8
+19. Qxh7 Qxa1
+29. Qxh8 Ke7
+39. Ke6 Kg8
+41. Kf7
+5. Qxa7 Qxf2+
+6. Kd1 Qxh2
+7. Qxa8 Qxh1
+8. Qxb8 Qxg1
+9. Qxb8+ Qxg1
 result: 1/2-1/2

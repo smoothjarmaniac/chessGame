@@ -1,77 +1,104 @@
-'''
-Main driver file.
-Handling user input.
-Displaying current GameStatus object.
-'''
+
+# Handles user input.
+# Displays current GameStatus object.
+
+
 import pygame as p
+from itertools import cycle
 import Engine
 import chessAI
 import sys
+import Theme
 
-BOARD_WIDTH = BOARD_HEIGHT = 512
-MOVE_LOG_PANEL_WIDTH = 250
+BOARD_WIDTH = BOARD_HEIGHT = 768
+MOVE_LOG_PANEL_WIDTH = 300
 MOVE_LOG_PANEL_HEIGHT = BOARD_HEIGHT
 DIMENSION = 8
 
-SQUARE_SIZE = BOARD_HEIGHT // DIMENSION
+SQUARE_SIZE = (BOARD_HEIGHT // DIMENSION)
 
-MAX_FPS = 15
-
+MAX_FPS = 120
 IMAGES = {}
+# global piece_sound
+# piece_sound = p.mixer.Sound("sounds/main.wav")
+# global basic_sound
+# basic_sound = p.mixer.Sound("sounds/basic.wav")
 
 
+# only to initialize IMAGES
+# later add themes
 def loadImages():
-    pieces = ['wp', 'wR', 'wN', 'wB', 'wK', 'wQ', 'bp', 'bR', 'bN', 'bB', 'bK', 'bQ']
+    pieces_white, pieces_black = ['wp', 'wR', 'wN', 'wB', 'wK', 'wQ'], ['bp', 'bR', 'bN', 'bB', 'bK', 'bQ']
+    pieces = pieces_white + pieces_black
+
     for piece in pieces:
-        IMAGES[piece] = p.transform.scale(p.image.load("chess pieces/" + piece + ".png"), (SQUARE_SIZE, SQUARE_SIZE))
+        if piece == 'wp' or piece == 'bp':
+            IMAGES[piece] = p.transform.smoothscale(p.image.load("new/" + piece + ".png"), (60, 70))
+        else:
+            IMAGES[piece] = p.transform.smoothscale(p.image.load("new/" + piece + ".png"), (88, 88))
 
 
+# driver code
+# handles user input
+# renders/updates the graphics
 def main():
+    # init pygame
     p.init()
-    screen = p.display.set_mode((BOARD_WIDTH + MOVE_LOG_PANEL_WIDTH, BOARD_HEIGHT))
+    # p.mixer.init()
+    screen = p.display.set_mode((BOARD_WIDTH + MOVE_LOG_PANEL_WIDTH, BOARD_HEIGHT), 0, 32)
+    p.display.set_caption("Chess Basic")
     clock = p.time.Clock()
     screen.fill(p.Color("white"))
     game_state = Engine.GameState()
     valid_moves = game_state.getValidMoves()
+    global theme_value
+    value = cycle([0, 1, 2, 3, 4])
+    theme_value = next(value)
     move_made = False
     animate = False
     loadImages()
 
+    init_font = p.font.SysFont("Cambria", 15, False, False)
+    end_font = p.font.SysFont("Cambria", 43, False, False)
+
     running = True
-    square_selected = ()
-    player_clicks = []
+    square_selected = ()  # keeps track of last selected square, used in event handling
+    player_clicks = []   # [initial position, final position] of a piece
     game_over = False
 
     white_did_check = ""
     black_did_check = ""
     last_move_printed = False
     moves_list = []
-    move_log_font = p.font.SysFont("Arial", 14, False, False)
+    move_log_font = p.font.SysFont("Cambria", 18, False, False)
 
     turn = 1
 
     player_one = True
-    player_two = True
+    player_two = False
 
+    # event handling
     while running:
+
         human_turn = (game_state.white_to_move and player_one) or (not game_state.white_to_move and player_two)
         for e in p.event.get():
             if e.type == p.QUIT:
                 running = False
                 p.quit()
                 sys.exit()
-            elif e.type == p.MOUSEBUTTONDOWN:
+            # handling mouse inputs
+            elif e.type == p.MOUSEBUTTONDOWN:  # later add functionality to drag pieces
                 if not game_over and human_turn:
                     location = p.mouse.get_pos()
                     col = location[0] // SQUARE_SIZE
                     row = location[1] // SQUARE_SIZE
-                    if square_selected == (row, col) or col >= 8:
+                    if square_selected == (row, col) or col >= 8:  # to handle multiple clicks
                         square_selected = ()
                         player_clicks = []
                     else:
                         square_selected = (row, col)
                         player_clicks.append(square_selected)
-                    if len(player_clicks) == 2:
+                    if len(player_clicks) == 2:  # if all happens as expected, two squares clicked
                         move = Engine.Move(player_clicks[0], player_clicks[1], game_state.board)
                         for i in range(len(valid_moves)):
                             if move == valid_moves[i]:
@@ -83,8 +110,9 @@ def main():
                         if not move_made:
                             player_clicks = [square_selected]
 
+            # handling keyboard inputs
             elif e.type == p.KEYDOWN:
-                if e.key == p.K_z:
+                if e.key == p.K_z:  # if 'Z' is pressed, undo
                     if game_state.white_to_move:
                         if turn > 1:
                             turn -= 1
@@ -94,7 +122,7 @@ def main():
                     game_over = False
                     last_move_printed = False
 
-                if e.key == p.K_r:
+                if e.key == p.K_r:  # if 'R' is pressed, reset the board
                     game_state = Engine.GameState()
                     valid_moves = game_state.getValidMoves()
                     square_selected = ()
@@ -105,6 +133,9 @@ def main():
                     turn = 1
                     last_move_printed = False
                     moves_list = []
+
+                if e.key == p.K_t:
+                    theme_value = next(value)
 
         if not game_over and not human_turn:
             AI_move = chessAI.findBestMoveNegaMaxAlphaBeta(game_state, valid_moves)
@@ -139,15 +170,16 @@ def main():
             move_made = False
             animate = False
 
-        drawGameState(screen, game_state, valid_moves, square_selected, move_log_font)
+        drawGameState(screen, game_state, valid_moves, square_selected, move_log_font, theme_value)
 
         if not game_over:
             drawMoveLog(screen, game_state, move_log_font)
+            drawInitial(screen,  init_font)
 
         if game_state.checkmate:
             game_over = True
             if game_state.white_to_move:
-                drawEndGameText(screen, "Black wins by checkmate")
+                drawEndGameText(screen, "Black wins by checkmate", end_font)
                 if not last_move_printed:
                     moves_list[-1] += "+"
                     moves_list.append("result: 0-1")
@@ -157,7 +189,7 @@ def main():
                     saveGame(moves_list)
 
             else:
-                drawEndGameText(screen, "White wins by checkmate")
+                drawEndGameText(screen, "White wins by checkmate", end_font)
                 if not last_move_printed:
                     moves_list.append(f"\n{turn}. {game_state.move_log[-1].getChessNotation()}++")
                     moves_list.append("result: 1-0")
@@ -168,7 +200,7 @@ def main():
 
         elif game_state.stalemate:
             game_over = True
-            drawEndGameText(screen, "Stalemate")
+            drawEndGameText(screen, "Stalemate", end_font)
             if not last_move_printed:
                 if not game_state.white_to_move:
                     moves_list.append(f"\n{turn}. {game_state.move_log[-1].getChessNotation()}")
@@ -179,24 +211,26 @@ def main():
                     saveGame(moves_list)
 
         clock.tick(MAX_FPS)
-        p.display.flip()
+        p.display.update()
 
 
-def drawGameState(screen, game_state, valid_moves, square_selected, move_log_font):
-    drawBoard(screen)
+def drawGameState(screen, game_state, valid_moves, square_selected, move_log_font, theme_value):
+    drawBoard(screen, theme_value)
     highlightSquares(screen, game_state, valid_moves, square_selected)
     drawPieces(screen, game_state.board)
 
-
-def drawBoard(screen):
+# **************************** USED BY drawGameState ****************************
+# called by drawGameState, draws the squares
+def drawBoard(screen, theme_value):
     global colors
-    colors = [p.Color(255, 206, 158), p.Color(209, 139, 71)]
+    theme = Theme.boardTheme()
+    colors = theme.getTheme(theme_value)
     for row in range(DIMENSION):
         for column in range(DIMENSION):
-            color = colors[((row + column) % 2)]
+            color = colors[((row + column) % 2)]  # if color is even then white, black == odd
             p.draw.rect(screen, color, p.Rect(column * SQUARE_SIZE, row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
 
-
+# called by drawGameState, shows possible moves
 def highlightSquares(screen, game_state, valid_moves, square_selected):
     if (len(game_state.move_log)) > 0:
         last_move = game_state.move_log[-1]
@@ -216,15 +250,18 @@ def highlightSquares(screen, game_state, valid_moves, square_selected):
                 if move.start_row == row and move.start_col == col:
                     screen.blit(s, (move.end_col * SQUARE_SIZE, move.end_row * SQUARE_SIZE))
 
-
+# called by drawGameState, draws the pieces
 def drawPieces(screen, board):
     for row in range(DIMENSION):
         for column in range(DIMENSION):
             piece = board[row][column]
-            if piece != "--":
-                screen.blit(IMAGES[piece], p.Rect(column * SQUARE_SIZE, row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
+            if piece == 'wp' or piece == 'bp':
+                screen.blit(IMAGES[piece], p.Rect((column * SQUARE_SIZE)+ 19, (row * SQUARE_SIZE )+ 14, SQUARE_SIZE, SQUARE_SIZE))
+            elif piece != "--":
+                screen.blit(IMAGES[piece], p.Rect((column * SQUARE_SIZE)+ 6, (row * SQUARE_SIZE )+ 6, SQUARE_SIZE, SQUARE_SIZE))
+#  The term blit stands for Block Transfer, and .blit() is how you copy the contents of one Surface to another.
 
-
+# called in event handling, explicitly
 def drawMoveLog(screen, game_state, font):
     move_log_rect = p.Rect(BOARD_WIDTH, 0, MOVE_LOG_PANEL_WIDTH, MOVE_LOG_PANEL_HEIGHT)
     p.draw.rect(screen, p.Color('black'), move_log_rect)
@@ -252,6 +289,7 @@ def drawMoveLog(screen, game_state, font):
         text_y += text_object.get_height() + line_spacing
 
 
+# not in use as of now
 def saveGame(moves_list):
     result = moves_list.pop()
     turns_dict = {}
@@ -269,25 +307,28 @@ def saveGame(moves_list):
     file.close()
 
 
-def drawEndGameText(screen, text):
-    font = p.font.SysFont("Helvitca", 32, True, False)
-    text_object = font.render(text, 0, p.Color("gray"))
+# called in event handling, explicitly
+def drawEndGameText(screen, text, end_font):
+    text_object = end_font.render(text, False, p.Color("black"), p.Color("gray"))
+    text_rect = text_object.get_rect()
     text_location = p.Rect(0, 0, BOARD_WIDTH, BOARD_HEIGHT).move(BOARD_WIDTH / 2 - text_object.get_width() / 2,
                                                                  BOARD_HEIGHT / 2 - text_object.get_height() / 2)
+    # screen.blit(text_object, text_rect.move(BOARD_WIDTH//2 - MOVE_LOG_PANEL_WIDTH, BOARD_HEIGHT//2))
     screen.blit(text_object, text_location)
-    text_object = font.render(text, 0, p.Color('black'))
-    screen.blit(text_object, text_location.move(2, 2))
+    # text_object = font.render(text, False, p.Color('black'), p.Color("dark green"))
+    # screen.blit(text_object, text_rect.move(2, 2))
 
 
 def animateMove(move, screen, board, clock):
+
     global colors
     d_row = move.end_row - move.start_row
     d_col = move.end_col - move.start_col
-    frames_per_square = 10
+    frames_per_square = 6
     frame_count = (abs(d_row) + abs(d_col)) * frames_per_square
     for frame in range(frame_count + 1):
         row, col = (move.start_row + d_row * frame / frame_count, move.start_col + d_col * frame / frame_count)
-        drawBoard(screen)
+        drawBoard(screen, theme_value)
         drawPieces(screen, board)
         color = colors[(move.end_row + move.end_col) % 2]
         end_square = p.Rect(move.end_col * SQUARE_SIZE, move.end_row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
@@ -300,6 +341,16 @@ def animateMove(move, screen, board, clock):
         screen.blit(IMAGES[move.piece_moved], p.Rect(col * SQUARE_SIZE, row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
         p.display.flip()
         clock.tick(60)
+
+
+# called in event handling, explicitly
+def drawInitial(screen,  init_font):
+    hints = "Z: Undo |" + " R: Reset |" " T: Theme"
+
+    text_object = init_font.render(hints, False, p.Color("green"))
+    text_location = p.Rect(0, 0, BOARD_WIDTH, BOARD_HEIGHT).move(BOARD_WIDTH + 20,
+                                                                 BOARD_HEIGHT - 20)
+    screen.blit(text_object, text_location)
 
 
 if __name__ == "__main__":
